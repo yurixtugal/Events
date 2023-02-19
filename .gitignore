@@ -12,6 +12,7 @@
 *.so
 *.dylib
 Events
+events
 
 # Environments
 .env
