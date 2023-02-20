@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/yurixtugal/Events/infrastucture/handler/response"
+	"github.com/yurixtugal/Events/infrastructure/handler/response"
 )
 
 func main() {

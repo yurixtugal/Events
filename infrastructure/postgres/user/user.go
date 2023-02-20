@@ -6,12 +6,24 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yurixtugal/Events/infrastructure/postgres"
 	"github.com/yurixtugal/Events/model"
 )
 
+const table = "users"
+
+var fields = []string{
+	"id",
+	"email",
+	"password",
+	"details",
+	"created_at",
+	"updated_at",
+}
+
 var (
-	psqlIsert        = "INSERT INTO users (id, email, password, is_admin, details, created_at) VALUES ($1,$2,$3,$4,$5)"
-	psqlSelectGetAll = "SELECT id, email, password, details, created_at, updated_at FROM users"
+	psqlInsert       = postgres.BuildSQLInsert(table, fields)
+	psqlSelectGetAll = postgres.BuildSQLSelect(table, fields)
 )
 
 type User struct {
@@ -23,12 +35,13 @@ func New(db *pgxpool.Pool) User {
 }
 
 func (u User) Create(m *model.User) error {
-	_, err := u.db.Exec(context.Background(), psqlIsert,
+	_, err := u.db.Exec(context.Background(), psqlInsert,
 		m.Email,
 		m.Password,
 		m.IsAdmin,
 		m.Details,
-		m.CreateAt)
+		m.CreateAt,
+		postgres.Int64ToNull(m.UpdateAt))
 
 	if err != nil {
 		return err
@@ -40,7 +53,7 @@ func (u User) Create(m *model.User) error {
 func (u User) GetByEmail(email string) (model.User, error) {
 	query := psqlSelectGetAll + " WHERE email = $1"
 	row := u.db.QueryRow(context.Background(), query, email)
-	return u.scanRow(row)
+	return u.scanRow(row, true)
 }
 
 func (u User) GetAll() (model.Users, error) {
@@ -54,19 +67,18 @@ func (u User) GetAll() (model.Users, error) {
 	ms := model.Users{}
 
 	for rows.Next() {
-		m, err := u.scanRow(rows)
+		m, err := u.scanRow(rows, false)
 
 		if err != nil {
 			return nil, err
 		}
-
 		ms = append(ms, m)
 	}
 
 	return ms, nil
 }
 
-func (u User) scanRow(s pgx.Row) (model.User, error) {
+func (u User) scanRow(s pgx.Row, withPassword bool) (model.User, error) {
 
 	m := model.User{}
 
@@ -85,5 +97,10 @@ func (u User) scanRow(s pgx.Row) (model.User, error) {
 		return m, err
 	}
 	m.UpdateAt = updatedAtNull.Int64
+
+	if !withPassword {
+		m.Password = ""
+	}
+
 	return m, nil
 }
